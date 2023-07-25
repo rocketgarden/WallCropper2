@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.DrawModifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.isUnspecified
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
@@ -31,7 +32,7 @@ data class CropState(
     val ratio: Double = 16.0 / 9.0,
     val imageSize: IntSize = IntSize.Zero,
     val cropImageOffset: Offset = Offset.Zero,
-    val scaleFactor: Float = 1.0f
+    val scaleFactor: Float = Float.NaN
     // multiply by scaleFactor to go from image -> screen dimensions
     // divide for reverse
 )
@@ -50,13 +51,15 @@ fun CropPreviewImage(filepath: String) {
             modifier = Modifier.onSizeChanged { renderSize ->
                 if (renderSize.width > 0 && renderSize.height > 0) {
                     state = state.copy(scaleFactor = (renderSize.height.toFloat() / state.imageSize.height.toFloat()))
-//                println("Scalefactor is ${state.scaleFactor}, ${renderSize.height} / ${state.imageSize.height}")
                 }
             }
-                .then(CropPreviewOverlay(state))
-                .onDrag { dragOffset ->
-                    state = state.copy(cropImageOffset = getNewOffset(state, dragOffset))
-                }
+                .then( // awkward conditional modifiers
+                    if (state.scaleFactor.isFinite())
+                        CropPreviewOverlay(state).onDrag { dragOffset ->
+                            state = state.copy(cropImageOffset = getNewOffset(state, dragOffset))
+                        }
+                    else Modifier
+                )
         )
         Text("Raw Imagesize ${state.imageSize}")
         Text("Desired size ${getDesiredSizeForRatio(state.imageSize, state.ratio)}")
@@ -105,11 +108,40 @@ class CropPreviewOverlay(val state: CropState) : DrawModifier {
         drawContent()
 
         if (state.cropImageOffset == Offset.Unspecified) return
+        if (size.isUnspecified || size == Size.Zero) return
 
         val cropRectSize = (getDesiredSizeForRatio(state.imageSize, ratio = state.ratio)) * state.scaleFactor
         val previewOffset = state.cropImageOffset * state.scaleFactor
+//
+        val alpha = 0.8f
 
-        drawRect(Color.Cyan, topLeft = previewOffset, size = cropRectSize, alpha = 0.4f)
+        // left/right pillarboxes
+
+        val pillarboxLeft = Size(previewOffset.x, size.height)
+        val pillarboxRight = Size(size.width - (cropRectSize.width + previewOffset.x), size.height)
+
+        // conditionals because rounding errors can create small negative dimensions at boundaries
+        if(pillarboxLeft.width >= 1) drawRect(Color.Green, topLeft = Offset.Zero, size = pillarboxLeft, alpha = alpha)
+        if(pillarboxRight.width >= 1) drawRect(
+            Color.Red,
+            topLeft = Offset(cropRectSize.width + pillarboxLeft.width, 0f),
+            size = pillarboxRight,
+            alpha = alpha
+        )
+
+        // top/bottom letterboxes
+
+        // could use size.width instead of cropRectSize.width, but this covers potential future case
+        // where cropRect can shrink and isn't edge-to-edge, so we don't double-draw the corners
+        val letterboxTop = Size(cropRectSize.width, previewOffset.y)
+        val letterboxBottom = Size(cropRectSize.width, size.height - (cropRectSize.height + previewOffset.y))
+        if(letterboxTop.height >= 1f) drawRect(Color.Cyan, topLeft = previewOffset.copy(y = 0f), size = letterboxTop, alpha = alpha)
+        if(letterboxBottom.height >= 1f) drawRect(
+            Color.Blue,
+            topLeft = previewOffset.copy(y = cropRectSize.height + letterboxTop.height),
+            size = letterboxBottom,
+            alpha = alpha
+        )
     }
 }
 

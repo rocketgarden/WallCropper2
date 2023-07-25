@@ -1,7 +1,6 @@
 package net.vinceblas.wallcropper2
 
 import androidx.compose.desktop.ui.tooling.preview.Preview
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
@@ -13,12 +12,11 @@ import androidx.compose.ui.window.singleWindowApplication
 import net.vinceblas.wallcropper2.components.CropPreviewImage
 
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 @Preview
 fun App() {
-    val widePic: String = "picdir/test169wide.png"
-    val bigpic: String = "picdir/weirdeagle.jpg"
+    @Suppress("UNUSED_VARIABLE") val widePic = "picdir/test169wide.png"
+    @Suppress("UNUSED_VARIABLE") val bigpic = "picdir/weirdeagle.jpg"
 
     var text by remember { mutableStateOf("Hello, World!") }
 
@@ -37,7 +35,7 @@ fun App() {
 
 fun main() {
     singleWindowApplication(
-        state = WindowState(width = 1600.dp, height = 1200.dp)
+        state = WindowState(width = 1500.dp, height = 1300.dp)
     ) {
         App()
     }
