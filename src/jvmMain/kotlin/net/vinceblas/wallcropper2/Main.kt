@@ -20,7 +20,6 @@ fun App() {
 
     var text by remember { mutableStateOf("Hello, World!") }
 
-
     MaterialTheme {
         Column {
             CropPreviewImage(bigpic)

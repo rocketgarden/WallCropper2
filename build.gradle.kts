@@ -27,6 +27,9 @@ kotlin {
                 implementation(compose.foundation)
                 implementation(compose.material)
                 implementation(compose.desktop.common)
+
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+                implementation("com.sksamuel.scrimage:scrimage-core:4.0.22")
             }
         }
         val jvmTest by getting

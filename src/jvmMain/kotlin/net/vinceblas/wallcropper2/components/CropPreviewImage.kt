@@ -20,12 +20,13 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.loadImageBitmap
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.round
+import androidx.compose.ui.unit.toOffset
 import androidx.compose.ui.unit.toSize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
-
 
 data class CropState(
     // all dimensions are relative to the image, not the preview on screen
@@ -39,7 +40,7 @@ data class CropState(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun CropPreviewImage(filepath: String) {
+fun CropPreviewImage(filepath: String) { // todo have this take a stream for state publishing instead
 
     var state by remember { mutableStateOf(CropState()) }
 
@@ -55,6 +56,7 @@ fun CropPreviewImage(filepath: String) {
             }
                 .then( // awkward conditional modifiers
                     if (state.scaleFactor.isFinite())
+                    // don't draw overlay until image is loaded and measured
                         CropPreviewOverlay(state).onDrag { dragOffset ->
                             state = state.copy(cropImageOffset = getNewOffset(state, dragOffset))
                         }
@@ -83,14 +85,11 @@ private fun getNewOffset(state: CropState, dragOffset: Offset): Offset {
 
     val imagespaceDrag = dragOffset / state.scaleFactor // scale drag offset up into imagespace
 
-    println("$xMax, $yMax")
-
     val newRawOffset = state.cropImageOffset + imagespaceDrag
     val finalOffset = Offset(newRawOffset.x.coerceIn(0f, xMax), newRawOffset.y.coerceIn(0f, yMax))
 
-    println("$finalOffset")
-
-    return finalOffset
+    return finalOffset.round().toOffset() // snap to underlying pixel bounds
+    // rounding on each drag event means preview pane is always rendered in a "snapped" state
 }
 
 private fun onImageLoaded(state: CropState, bitmap: ImageBitmap): CropState {
@@ -103,7 +102,7 @@ private fun onImageLoaded(state: CropState, bitmap: ImageBitmap): CropState {
     return state.copy(imageSize = imageSize, cropImageOffset = cropOffset)
 }
 
-class CropPreviewOverlay(val state: CropState) : DrawModifier {
+class CropPreviewOverlay(private val state: CropState) : DrawModifier {
     override fun ContentDrawScope.draw() {
         drawContent()
 
@@ -121,8 +120,8 @@ class CropPreviewOverlay(val state: CropState) : DrawModifier {
         val pillarboxRight = Size(size.width - (cropRectSize.width + previewOffset.x), size.height)
 
         // conditionals because rounding errors can create small negative dimensions at boundaries
-        if(pillarboxLeft.width >= 1) drawRect(Color.Green, topLeft = Offset.Zero, size = pillarboxLeft, alpha = alpha)
-        if(pillarboxRight.width >= 1) drawRect(
+        if (pillarboxLeft.width >= 1) drawRect(Color.Green, topLeft = Offset.Zero, size = pillarboxLeft, alpha = alpha)
+        if (pillarboxRight.width >= 1) drawRect(
             Color.Red,
             topLeft = Offset(cropRectSize.width + pillarboxLeft.width, 0f),
             size = pillarboxRight,
@@ -135,8 +134,13 @@ class CropPreviewOverlay(val state: CropState) : DrawModifier {
         // where cropRect can shrink and isn't edge-to-edge, so we don't double-draw the corners
         val letterboxTop = Size(cropRectSize.width, previewOffset.y)
         val letterboxBottom = Size(cropRectSize.width, size.height - (cropRectSize.height + previewOffset.y))
-        if(letterboxTop.height >= 1f) drawRect(Color.Cyan, topLeft = previewOffset.copy(y = 0f), size = letterboxTop, alpha = alpha)
-        if(letterboxBottom.height >= 1f) drawRect(
+        if (letterboxTop.height >= 1f) drawRect(
+            Color.Cyan,
+            topLeft = previewOffset.copy(y = 0f),
+            size = letterboxTop,
+            alpha = alpha
+        )
+        if (letterboxBottom.height >= 1f) drawRect(
             Color.Blue,
             topLeft = previewOffset.copy(y = cropRectSize.height + letterboxTop.height),
             size = letterboxBottom,
