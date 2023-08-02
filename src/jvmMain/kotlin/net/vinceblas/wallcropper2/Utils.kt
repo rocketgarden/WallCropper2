@@ -1,25 +1,33 @@
 package net.vinceblas.wallcropper2
 
-import javax.swing.SwingUtilities
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.unit.IntSize
+import java.io.File
 
-internal fun <T> runOnUiThread(block: () -> T): T {
-    if (SwingUtilities.isEventDispatchThread()) {
-        return block()
+fun getDesiredSizeForRatio(size: IntSize, ratio: Double): Size {
+    return getDesiredSizeForRatio(size.width, size.height, ratio)
+}
+
+fun getDesiredSizeForRatio(width: Int, height: Int, ratio: Double): Size {
+    if (width == 0 || height == 0) return Size.Zero
+    return if (width / height.toDouble() > ratio) { // too wide, base size on height
+        Size(width = (height * ratio).toFloat(), height = height.toFloat())
+    } else { // vice versa
+        Size(width = width.toFloat(), height = (width / ratio).toFloat())
     }
+}
 
-    var error: Throwable? = null
-    var result: T? = null
-
-    SwingUtilities.invokeAndWait {
-        try {
-            result = block()
-        } catch (e: Throwable) {
-            error = e
-        }
+fun File.getValidImages(): List<File> {
+    return if (this.isDirectory) {
+        this.listFiles()?.filter { isValidImage(it) } ?: emptyList()
+    } else {
+        emptyList()
     }
+}
 
-    error?.also { throw it }
-
-    @Suppress("UNCHECKED_CAST")
-    return result as T
+fun isValidImage(file: File): Boolean {
+    return file.isFile &&
+            (file.extension.equals("jpg", true)
+                    || file.extension.equals("png", true)
+                    || file.extension.equals("jpeg", true))
 }

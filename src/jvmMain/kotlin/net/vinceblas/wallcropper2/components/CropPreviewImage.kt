@@ -3,8 +3,7 @@ package net.vinceblas.wallcropper2.components
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.onDrag
-import androidx.compose.foundation.layout.Column
-import androidx.compose.material.Text
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
@@ -20,8 +19,8 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.round
 import androidx.compose.ui.unit.toOffset
-import androidx.compose.ui.unit.toSize
 import kotlinx.coroutines.flow.MutableStateFlow
+import net.vinceblas.wallcropper2.getDesiredSizeForRatio
 import org.jetbrains.skia.Image
 
 data class CropState(
@@ -53,11 +52,11 @@ data class CropState(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun CropPreviewImage(stateFlow: MutableStateFlow<CropState?>) {
+fun CropPreviewImage(stateFlow: MutableStateFlow<CropState?>, modifier: Modifier = Modifier) {
     val state = stateFlow.collectAsState().value
 
     state?.let { cropState ->
-        Column {
+        Box(modifier = modifier) {
             Image(
                 bitmap = cropState.imageBitmap,
                 contentDescription = null,
@@ -79,23 +78,24 @@ fun CropPreviewImage(stateFlow: MutableStateFlow<CropState?>) {
                         else Modifier
                     )
             )
-
-            // todo remove debug info or hide behind a flag
-            Text("Raw Imagesize ${cropState.imageSize}")
-            Text("Desired size ${getDesiredSizeForRatio(cropState.imageSize, cropState.desiredRatio)}")
-
-            Text("Crop Offset ${cropState.cropImageOffset}")
-            Text("Scalefactor ${cropState.scaleFactor}")
-
-            Text(
-                "Desired scaled size ${
-                    getDesiredSizeForRatio(
-                        cropState.imageSize,
-                        cropState.desiredRatio
-                    ) * cropState.scaleFactor
-                }"
-            )
-            Text("Scaled Imagesize ${cropState.imageSize.toSize() * cropState.scaleFactor}")
+//            Column {
+//                // todo remove debug info or hide behind a flag
+//                Text("Raw Imagesize ${cropState.imageSize}")
+//                Text("Desired size ${getDesiredSizeForRatio(cropState.imageSize, cropState.desiredRatio)}")
+//
+//                Text("Crop Offset ${cropState.cropImageOffset}")
+//                Text("Scalefactor ${cropState.scaleFactor}")
+//
+//                Text(
+//                    "Desired scaled size ${
+//                        getDesiredSizeForRatio(
+//                            cropState.imageSize,
+//                            cropState.desiredRatio
+//                        ) * cropState.scaleFactor
+//                    }"
+//                )
+//                Text("Scaled Imagesize ${cropState.imageSize.toSize() * cropState.scaleFactor}")
+//            }
         }
     }
 }
@@ -168,11 +168,3 @@ class CropPreviewOverlayModifier(private val state: CropState) : DrawModifier {
     }
 }
 
-private fun getDesiredSizeForRatio(size: IntSize, ratio: Double): Size {
-    if (size == IntSize.Zero) return Size.Zero
-    return if (size.width / size.height > ratio) { // too wide, base size on height
-        Size(width = (size.height * ratio).toFloat(), height = size.height.toFloat())
-    } else { // vice versa
-        Size(width = size.width.toFloat(), height = (size.width / ratio).toFloat())
-    }
-}
