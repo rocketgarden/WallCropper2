@@ -10,7 +10,7 @@ class ImageLoader(currentDirectoryFlow: MutableStateFlow<File>) {
 
     companion object {
         const val SKIP_DIR = "skipped"
-        const val TRASH_DIR = "trash"
+        const val DELETE_DIR = "trash"
         const val BACKUP_DIR = "backup"
         const val ERROR_DIR = "error"
         const val CROPPED_DIR = "cropped"

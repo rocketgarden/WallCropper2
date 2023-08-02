@@ -8,19 +8,17 @@ import java.io.File
 
 class ImageFileCropper {
 
-//    var outputDir: File = File("./")
-
     companion object {
         const val CROPPED_DIR = "cropped"
     }
 
-    fun cropImage(filename: String, outputBaseDir: String, bytes: ByteArray, offset: Offset, ratio: Double) {
-        val (writer, name) = if (filename.endsWith(".png", ignoreCase = true)) {
-            PngWriter.MinCompression to "$filename.png"
+    fun cropImage(outfile: File, outputBaseDir: String, bytes: ByteArray, offset: Offset, ratio: Double) {
+        val (writer, name) = if (outfile.extension.equals(".png", ignoreCase = true)) {
+            PngWriter.MinCompression to outfile.name
             // Compression is hecka slow for minimal size reduction.
             // Can recompress in batches using another tool if necessary
         } else {
-            JpegWriter.compression(99) to "$filename.jpg"
+            JpegWriter.compression(99) to "${outfile.nameWithoutExtension}.jpg" // rename ".jpeg" to ".jpg" if needed
         }
 
         val outDir = File(outputBaseDir, CROPPED_DIR)
@@ -45,14 +43,14 @@ class ImageFileCropper {
                 throw IllegalArgumentException("Crop area is outside image bounds")
             }
 
-            println("Cropping $filename to left=$left, top=$top, right=$right, bottom=$bottom")
+            println("Cropping ${outfile.name} to left=$left, top=$top, right=$right, bottom=$bottom")
 
             // Crop image and write it to the output file
             oldImage.trim(left, top, right, bottom).output(writer, outFile) // todo put this in coroutine, maybe return the async reference?
-            println("Finished cropping $filename")
+            println("Finished cropping ${outfile.name}")
         } catch (e: Exception) {
             e.printStackTrace()
-            System.err.println("Couldn't crop image $filename")
+            System.err.println("Couldn't crop image ${outfile.name}")
         }
     }
 

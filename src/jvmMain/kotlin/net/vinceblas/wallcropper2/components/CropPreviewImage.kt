@@ -2,8 +2,11 @@ package net.vinceblas.wallcropper2.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.onDrag
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
@@ -19,6 +22,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.round
 import androidx.compose.ui.unit.toOffset
+import androidx.compose.ui.unit.toSize
 import kotlinx.coroutines.flow.MutableStateFlow
 import net.vinceblas.wallcropper2.getDesiredSizeForRatio
 import org.jetbrains.skia.Image
@@ -32,7 +36,6 @@ data class CropState(
     val scaleFactor: Float = Float.NaN
     // multiply by scaleFactor to go from image -> screen dimensions
     // divide for reverse
-
 
 ) {
     companion object {
@@ -50,6 +53,8 @@ data class CropState(
 
 }
 
+const val PREVIEW_DEBUG = false
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CropPreviewImage(stateFlow: MutableStateFlow<CropState?>, modifier: Modifier = Modifier) {
@@ -57,7 +62,7 @@ fun CropPreviewImage(stateFlow: MutableStateFlow<CropState?>, modifier: Modifier
 
     state?.let { cropState ->
         Box(modifier = modifier) {
-            Image(
+            Image( // todo use drawWithCache to render image instead so we don't have to redraw entire bitmap when overlay changes
                 bitmap = cropState.imageBitmap,
                 contentDescription = null,
                 modifier = Modifier.onSizeChanged { renderSize ->
@@ -72,30 +77,34 @@ fun CropPreviewImage(stateFlow: MutableStateFlow<CropState?>, modifier: Modifier
                         // don't draw overlay until image is measured and we know scaleFactor
                             CropPreviewOverlayModifier(cropState)
                                 .onDrag { dragOffset ->
-                                    stateFlow.value =
-                                        cropState.copy(cropImageOffset = getNewOffset(cropState, dragOffset))
+                                    stateFlow.value?.let {state ->
+                                        // reference most recent state in case multiple drag events come through before recompose
+                                        stateFlow.value =
+                                            state.copy(cropImageOffset = getNewOffset(state, dragOffset))
+                                    }
                                 }
                         else Modifier
                     )
             )
-//            Column {
-//                // todo remove debug info or hide behind a flag
-//                Text("Raw Imagesize ${cropState.imageSize}")
-//                Text("Desired size ${getDesiredSizeForRatio(cropState.imageSize, cropState.desiredRatio)}")
-//
-//                Text("Crop Offset ${cropState.cropImageOffset}")
-//                Text("Scalefactor ${cropState.scaleFactor}")
-//
-//                Text(
-//                    "Desired scaled size ${
-//                        getDesiredSizeForRatio(
-//                            cropState.imageSize,
-//                            cropState.desiredRatio
-//                        ) * cropState.scaleFactor
-//                    }"
-//                )
-//                Text("Scaled Imagesize ${cropState.imageSize.toSize() * cropState.scaleFactor}")
-//            }
+            if(PREVIEW_DEBUG) {
+                Column(Modifier.background(Color(200,200,200, 120))) {
+                    Text("Raw Imagesize ${cropState.imageSize}")
+                    Text("Desired size ${getDesiredSizeForRatio(cropState.imageSize, cropState.desiredRatio)}")
+
+                    Text("Crop Offset ${cropState.cropImageOffset}")
+                    Text("Scalefactor ${cropState.scaleFactor}")
+
+                    Text(
+                        "Desired scaled size ${
+                            getDesiredSizeForRatio(
+                                cropState.imageSize,
+                                cropState.desiredRatio
+                            ) * cropState.scaleFactor
+                        }"
+                    )
+                    Text("Scaled Imagesize ${cropState.imageSize.toSize() * cropState.scaleFactor}")
+                }
+            }
         }
     }
 }
@@ -130,7 +139,6 @@ class CropPreviewOverlayModifier(private val state: CropState) : DrawModifier {
 
         val cropRectSize = (getDesiredSizeForRatio(state.imageSize, ratio = state.desiredRatio)) * state.scaleFactor
         val previewOffset = state.cropImageOffset * state.scaleFactor
-//
         val alpha = 0.8f
 
         // left/right pillarboxes
