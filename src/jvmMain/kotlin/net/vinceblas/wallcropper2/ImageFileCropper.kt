@@ -13,7 +13,7 @@ class ImageFileCropper {
     }
 
     fun cropImage(outfile: File, outputBaseDir: String, bytes: ByteArray, offset: Offset, ratio: Double) {
-        val (writer, name) = if (outfile.extension.equals(".png", ignoreCase = true)) {
+        val (writer, name) = if (outfile.extension.equals("png", ignoreCase = true)) {
             PngWriter.MinCompression to outfile.name
             // Compression is hecka slow for minimal size reduction.
             // Can recompress in batches using another tool if necessary

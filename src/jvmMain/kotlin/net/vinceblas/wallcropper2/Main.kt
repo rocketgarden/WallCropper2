@@ -4,90 +4,117 @@ import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.*
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.launch
 import net.vinceblas.wallcropper2.components.CropPreviewImage
 import net.vinceblas.wallcropper2.components.CropState
 import net.vinceblas.wallcropper2.components.ImageLoader
 import java.io.File
 
-data class LoadedImageState( // todo sealed class with error/empty/finished(/loading?) states
-    val fileHandle: File,
-    @Suppress("ArrayInDataClass") val bytes: ByteArray
-    // no need to override equals since we only load bytes once; compare by reference is fine
-)
+sealed class ImageState {
+    object Loading : ImageState()
+    data class Loaded(
+        val fileHandle: File,
+        @Suppress("ArrayInDataClass") val bytes: ByteArray
+        // no need to override equals since we only load bytes once; compare by reference is fine
+    ) : ImageState()
 
+    object Finished : ImageState()
+    data class Error(val message: String) : ImageState()
+}
+
+@OptIn(ExperimentalUnitApi::class)
 @Composable
 @Preview
 fun App(imageLoader: ImageLoader, baseDirectoryFlow: MutableStateFlow<File>, windowTitle: MutableState<String>) {
-    val composableScope = rememberCoroutineScope()
     val imageFileCropper = ImageFileCropper()
 
     val cropStateFlow = remember { MutableStateFlow<CropState?>(null) }
     // not actually sure if remember is necessary here since we'd be feeding a new initial state in on recompose anyways? maybe?
 
     // feed loaded images into PreviewImage state
-    composableScope.launch {
+    LaunchedEffect(imageLoader) {
         imageLoader.currentImageStateFlow.collect { loadedImageState ->
-            loadedImageState?.let {
+            if (loadedImageState is ImageState.Loaded) {
                 cropStateFlow.value = loadedImageState.let { CropState.buildInitialState(it.bytes) }
                 println("Loaded ${loadedImageState.fileHandle}")
                 windowTitle.value = loadedImageState.fileHandle.name
+            } else {
+                cropStateFlow.value = null
+                windowTitle.value = "Loading..."
             }
         }
     }
 
     MaterialTheme {
         Column {
-            Box(modifier = Modifier.weight(1f, true)) {
+            val imageState = imageLoader.currentImageStateFlow.value
+            Box(modifier = Modifier.weight(1f, true).fillMaxWidth()) {
                 // nb: weight modifier used bc it subtracts fixed-size elements from the allocatable space
                 // vs default unmodified behavior which expands to maximum size possible (and pushes buttons offscreen)
-                // wrapped in box so variable image size doesn't bound layout around
-                CropPreviewImage(cropStateFlow)
-                // todo show error/etc message here if cropStateFlow is null (image loading broken)
-            }
-            Row {
-                Button(onClick = {
-                    val loadedState = imageLoader.currentImageStateFlow.value
-                    val cropState = cropStateFlow.value
-
-                    if (loadedState != null && cropState != null) {
-                        imageLoader.archive() // Load the next image
-                        imageFileCropper.cropImage(
-                            outfile = loadedState.fileHandle,
-                            outputBaseDir = baseDirectoryFlow.value.name,
-                            bytes = loadedState.bytes,
-                            offset = cropState.cropImageOffset,
-                            ratio = cropState.desiredRatio
-                        )
+                // wrapped in box so variable image size doesn't bounce layout around
+                when (imageState) {
+                    is ImageState.Loaded -> {
+                        CropPreviewImage(cropStateFlow)
                     }
-                }) {
+
+                    else -> {
+                        val message = when (imageState) {
+                            ImageState.Finished -> "No More Images"
+                            ImageState.Loading -> "Loading!"
+                            is ImageState.Error -> "Error: ${imageState.message}"
+                            else -> "Unknown Error"
+                        }
+                        Text(message, Modifier.align(Alignment.Center), fontSize = TextUnit(26f, TextUnitType.Sp))
+                    }
+                }
+            }
+            val isLoaded = imageState is ImageState.Loaded
+            Row {
+                Button(
+                    onClick = {
+                        val cropState = cropStateFlow.value
+
+                        if (imageState is ImageState.Loaded && cropState != null) {
+                            imageLoader.archive() // Load the next image
+                            imageFileCropper.cropImage(
+                                outfile = imageState.fileHandle,
+                                outputBaseDir = baseDirectoryFlow.value.name,
+                                bytes = imageState.bytes,
+                                offset = cropState.cropImageOffset,
+                                ratio = cropState.desiredRatio
+                            )
+                        }
+                    },
+                    enabled = isLoaded
+                ) {
                     Text("Crop")
                 }
 
-                Button(onClick = {
-                    // move file to skipped folder, no crop
-                    imageLoader.skip()
-                }) {
+                Button(
+                    onClick = imageLoader::skip,
+                    enabled = isLoaded
+                ) {
                     Text("Skip")
                 }
-                Button(onClick = {
-                    // move file to trash folder
-                    imageLoader.delete()
-                }) {
+                Button(
+                    onClick = imageLoader::delete,
+                    enabled = isLoaded
+                ) {
                     Text("Discard")
                 }
             }
+
         }
     }
 }

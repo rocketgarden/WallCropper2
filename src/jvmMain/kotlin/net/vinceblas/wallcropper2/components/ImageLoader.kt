@@ -2,7 +2,7 @@ package net.vinceblas.wallcropper2.components
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
-import net.vinceblas.wallcropper2.LoadedImageState
+import net.vinceblas.wallcropper2.ImageState
 import net.vinceblas.wallcropper2.getValidImages
 import java.io.File
 
@@ -24,7 +24,7 @@ class ImageLoader(currentDirectoryFlow: MutableStateFlow<File>) {
 
     private var loaderJob: Job? = null
 
-    val currentImageStateFlow: MutableStateFlow<LoadedImageState?> = MutableStateFlow(null)
+    val currentImageStateFlow: MutableStateFlow<ImageState> = MutableStateFlow(ImageState.Loading)
     // todo expose as StateFlow (not mutable)
 
     init {
@@ -54,21 +54,25 @@ class ImageLoader(currentDirectoryFlow: MutableStateFlow<File>) {
     }
 
     private fun loadNextImage() {
+        currentImageStateFlow.value = ImageState.Loading
         loaderJob?.cancel()
         loaderJob = null
-
         // Load the next image and update the currentImageStateFlow
         if (nextFileIndex < imageFiles.size) {
             loaderJob = MainScope().launch(Dispatchers.IO) {
                 val file = imageFiles[nextFileIndex]
-                val bytes = file.readBytes()
-                if(isActive) { // if we're cancelled, discard loaded data and don't update any state
-                    currentImageStateFlow.value = LoadedImageState(file, bytes)
-                    nextFileIndex++
+                try {
+                    val bytes = file.readBytes()
+                    if(isActive) { // if we're cancelled, discard loaded data and don't update any state
+                        currentImageStateFlow.value = ImageState.Loaded(file, bytes)
+                        nextFileIndex++
+                    }
+                } catch (throwable: Throwable) {
+                    currentImageStateFlow.value = ImageState.Error(throwable.message?: "Unknown Error")
                 }
             }
         } else {
-            currentImageStateFlow.value = null
+            currentImageStateFlow.value = ImageState.Finished
         }
     }
 
