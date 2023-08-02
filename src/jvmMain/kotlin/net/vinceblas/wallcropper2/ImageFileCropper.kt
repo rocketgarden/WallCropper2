@@ -31,6 +31,7 @@ class ImageFileCropper {
 
             // Get desired size for cropping
             val desiredSize = getDesiredSizeForRatio(oldImage.width, oldImage.height, ratio)
+            // todo will need to change this if zooming/shrinking crop area is added
 
             // Calculate trim parameters
             val left = offset.x.toInt()

@@ -9,10 +9,11 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
-import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
+import androidx.compose.ui.window.rememberWindowState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import net.vinceblas.wallcropper2.components.CropPreviewImage
@@ -101,7 +102,7 @@ fun main() {
     application {
         Window(
             ::exitApplication,
-            state = WindowState(width = 1500.dp, height = 1300.dp),
+            state = rememberWindowState(size = DpSize(width = 1500.dp, height = 1300.dp)),
             title = windowTitle.value
         ) {
             App(imageLoader, baseDirectoryFlow, windowTitle)

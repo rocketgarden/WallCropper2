@@ -29,7 +29,7 @@ import org.jetbrains.skia.Image
 
 data class CropState(
     // all dimensions are relative to the image, not the preview on screen
-    val imageBitmap: ImageBitmap,
+    val imageBitmap: ImageBitmap, // todo move bitmap out of cropstate and into image load state? Then can resize on load into sane dimensions
     val desiredRatio: Double,
     val imageSize: IntSize = IntSize.Zero,
     val cropImageOffset: Offset = Offset.Zero,
@@ -42,6 +42,7 @@ data class CropState(
         // mostly just encapsulating crop offset calculation
         fun buildInitialState(byteArray: ByteArray, ratio: Double = 16.0 / 9.0): CropState {
             val bitmap = Image.makeFromEncoded(byteArray).toComposeImageBitmap()
+
             val imageSize = IntSize(bitmap.width, bitmap.height)
             val desiredSize = getDesiredSizeForRatio(imageSize, ratio)
             val cropOffset =
@@ -59,7 +60,6 @@ const val PREVIEW_DEBUG = false
 @Composable
 fun CropPreviewImage(stateFlow: MutableStateFlow<CropState?>, modifier: Modifier = Modifier) {
     val state = stateFlow.collectAsState().value
-
     state?.let { cropState ->
         Box(modifier = modifier) {
             Image( // todo use drawWithCache to render image instead so we don't have to redraw entire bitmap when overlay changes
@@ -86,8 +86,8 @@ fun CropPreviewImage(stateFlow: MutableStateFlow<CropState?>, modifier: Modifier
                         else Modifier
                     )
             )
-            if(PREVIEW_DEBUG) {
-                Column(Modifier.background(Color(200,200,200, 120))) {
+            if (PREVIEW_DEBUG) {
+                Column(Modifier.background(Color(200, 200, 200, 120))) {
                     Text("Raw Imagesize ${cropState.imageSize}")
                     Text("Desired size ${getDesiredSizeForRatio(cropState.imageSize, cropState.desiredRatio)}")
 
@@ -130,8 +130,16 @@ private fun getNewOffset(state: CropState, dragOffset: Offset): Offset {
     // rounding on each drag event means preview pane is always rendered in a "snapped" state
 }
 
+var lastDrawTime = System.currentTimeMillis()
+
 class CropPreviewOverlayModifier(private val state: CropState) : DrawModifier {
     override fun ContentDrawScope.draw() {
+        if (PREVIEW_DEBUG) {
+            val time = System.currentTimeMillis()
+            println("frame time: ${time - lastDrawTime}")
+            lastDrawTime = time
+        }
+
         drawContent()
 
         if (state.cropImageOffset == Offset.Unspecified) return
